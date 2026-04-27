@@ -17,3 +17,225 @@
   La classe "hidden" la cache (display: none dans style.css).
   C'est app.js qui appelle showSection('nom') pour naviguer.
   ============================================================ -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>404 : ESCAPE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="scanlines"></div>
+<div id="cursor"></div>
+
+<!-- BOOT -->
+<div id="boot">
+  <div id="boot-content">
+    <div id="b1" class="bline"></div>
+    <div id="b2" class="bline"></div>
+    <div id="b3" class="bline"></div>
+    <div id="b4" class="bline"></div>
+    <div id="bbar-wrap" hidden><div id="bbar"></div></div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="page-login" class="page active">
+  <div class="bg-particles"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="auth-wrapper">
+    <h1 class="glitch-title" data-text="404:ESCAPE">404:ESCAPE</h1>
+    <p class="tagline">UN LABYRINTHE. UNE SORTIE. BONNE CHANCE.</p>
+    <div class="auth-box">
+      <div class="tabs">
+        <button class="tab active" id="tab-login" onclick="switchTab('login')">CONNEXION</button>
+        <button class="tab" id="tab-register" onclick="switchTab('register')">INSCRIPTION</button>
+      </div>
+      <form id="form-login" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="field-group"><label>EMAIL</label><input type="email" id="login-email" placeholder="joueur@mail.com" required /></div>
+        <div class="field-group"><label>MOT DE PASSE</label><input type="password" id="login-password" placeholder="••••••••" required /></div>
+        <p id="login-error" class="error-msg" hidden></p>
+        <button type="submit" class="btn-primary">SE CONNECTER</button>
+      </form>
+      <form id="form-register" class="auth-form hidden" onsubmit="handleRegister(event)">
+        <div class="field-group"><label>PSEUDO</label><input type="text" id="reg-username" placeholder="PLAYER_ONE" minlength="3" maxlength="20" required /></div>
+        <div class="field-group"><label>EMAIL</label><input type="email" id="reg-email" placeholder="joueur@mail.com" required /></div>
+        <div class="field-group"><label>MOT DE PASSE</label><input type="password" id="reg-password" placeholder="••••••••" minlength="6" required /><p class="field-hint">minimum 6 caracteres</p></div>
+        <p id="reg-error" class="error-msg" hidden></p>
+        <button type="submit" class="btn-primary">S'INSCRIRE</button>
+      </form>
+    </div>
+    <p class="version-tag">v1.0.0 — B1 YNOV 2025-2026</p>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page hidden">
+  <header class="topbar">
+    <div class="topbar-logo">404<span class="logo-accent">:</span>ESCAPE</div>
+    <nav class="topbar-nav">
+      <span id="user-greeting" class="nav-user"></span>
+      <button class="btn-icon" id="btn-admin" onclick="goToPage('admin')" hidden>ADMIN</button>
+      <button class="btn-icon danger" onclick="logout()">QUITTER</button>
+    </nav>
+  </header>
+  <main class="dashboard-main">
+    <div class="section-header">
+      <h2 class="section-title">MES LABYRINTHES</h2>
+      <button class="btn-primary small" onclick="openModal('modal-create')">+ NOUVEAU</button>
+    </div>
+    <div id="labyrinth-list" class="lab-grid">
+      <div class="empty-state"><p>AUCUN LABYRINTHE</p><p class="empty-sub">Cree ton premier !</p></div>
+    </div>
+  </main>
+</div>
+
+<!-- LABYRINTHE -->
+<div id="page-labyrinth" class="page hidden">
+  <header class="topbar">
+    <button class="btn-back" onclick="goToPage('dashboard')">RETOUR</button>
+    <span id="lab-page-title" class="topbar-logo">LABYRINTHE</span>
+    <div class="topbar-nav">
+      <button class="btn-icon" id="btn-solve" onclick="solveMaze()">RESOUDRE</button>
+      <button class="btn-icon danger hidden" id="btn-clear" onclick="clearSolution()">EFFACER</button>
+    </div>
+  </header>
+  <div class="controls-bar">
+    <div class="control-block">
+      <span class="ctrl-label">TAILLE</span>
+      <div class="size-selector">
+        <button class="size-btn active" data-size="small" onclick="selectSize(this)">S</button>
+        <button class="size-btn" data-size="medium" onclick="selectSize(this)">M</button>
+        <button class="size-btn" data-size="large" onclick="selectSize(this)">L</button>
+      </div>
+    </div>
+    <div class="control-block">
+      <span class="ctrl-label">DIFFICULTE <span class="ctrl-value" id="diff-display">5</span>/10</span>
+      <input type="range" id="difficulty" min="1" max="10" value="5" oninput="document.getElementById('diff-display').textContent=this.value" />
+    </div>
+    <button class="btn-primary" onclick="generateMaze()">GENERER</button>
+  </div>
+  <div class="canvas-zone">
+    <div class="canvas-frame">
+      <canvas id="maze-canvas" width="560" height="560"></canvas>
+      <div class="canvas-overlay hidden" id="canvas-overlay"><span class="blink">GENERATION EN COURS...</span></div>
+    </div>
+    <div class="legend">
+      <span class="legend-entry">ENTREE</span>
+      <span class="legend-exit">SORTIE</span>
+      <span class="legend-path">CHEMIN A*</span>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="page-admin" class="page hidden">
+  <header class="topbar admin-bar">
+    <button class="btn-back" onclick="goToPage('dashboard')">RETOUR</button>
+    <span class="topbar-logo admin-logo">ADMIN PANEL</span>
+    <div></div>
+  </header>
+  <main class="admin-main">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="stat-users">--</div><div class="stat-lbl">UTILISATEURS</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-labs">--</div><div class="stat-lbl">LABYRINTHES</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-avg">--</div><div class="stat-lbl">MOY / USER</div></div>
+    </div>
+    <h2 class="section-title">UTILISATEURS</h2>
+    <div class="table-wrap">
+      <table class="data-table"><thead><tr><th>ID</th><th>PSEUDO</th><th>EMAIL</th><th>LABYRINTHES</th><th>ACTIONS</th></tr></thead><tbody id="users-tbody"></tbody></table>
+    </div>
+    <h2 class="section-title mt">TOUS LES LABYRINTHES</h2>
+    <div class="table-wrap">
+      <table class="data-table"><thead><tr><th>ID</th><th>NOM</th><th>PROPRIETAIRE</th><th>TAILLE</th><th>DIFF.</th><th>ACTIONS</th></tr></thead><tbody id="labs-tbody"></tbody></table>
+    </div>
+  </main>
+</div>
+
+<!-- MODALE -->
+<div id="modal-create" class="modal-backdrop hidden" onclick="closeModalOutside(event,'modal-create')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">NOUVEAU LABYRINTHE</h2>
+      <button class="btn-icon" onclick="closeModal('modal-create')">X</button>
+    </div>
+    <form onsubmit="handleCreateLabyrinth(event)">
+      <div class="modal-body">
+        <div class="field-group"><label>NOM</label><input type="text" id="new-lab-name" placeholder="MON_LABYRINTHE" maxlength="30" required /></div>
+        <div class="field-group"><label>TAILLE</label>
+          <select id="new-lab-size" class="styled-select">
+            <option value="small">PETIT - 10x10</option>
+            <option value="medium" selected>MOYEN - 20x20</option>
+            <option value="large">GRAND - 30x30</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>DIFFICULTE <span class="ctrl-value" id="modal-diff-display">5</span>/10</label>
+          <input type="range" id="new-lab-diff" min="1" max="10" value="5" oninput="document.getElementById('modal-diff-display').textContent=this.value" />
+          <p class="field-hint">1-6 : DFS &nbsp;|&nbsp; 7-10 : Kruskal</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('modal-create')">ANNULER</button>
+        <button type="submit" class="btn-primary">CREER</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+<script>
+  // curseur pixel
+  const cur = document.getElementById('cursor')
+  document.addEventListener('mousemove', e => { cur.style.left = e.clientX+'px'; cur.style.top = e.clientY+'px' })
+  document.querySelectorAll('button,input,select').forEach(el => {
+    el.addEventListener('mouseenter', () => cur.classList.add('hover'))
+    el.addEventListener('mouseleave', () => cur.classList.remove('hover'))
+  })
+
+  // boot screen
+  const lines = [
+    ['b1', '> INITIALISATION DU SYSTEME...', 0],
+    ['b2', '> CHARGEMENT DES MODULES...',    700],
+    ['b3', '> CONNEXION A LA MATRICE...',    1400],
+    ['b4', '> ACCES AUTORISE.',              2100],
+  ]
+
+  // écrit un texte lettre par lettre
+  const type = (id, txt, speed=35) => {
+    const el = document.getElementById(id)
+    let i = 0
+    const t = setInterval(() => { el.textContent += txt[i++]; if(i >= txt.length) clearInterval(t) }, speed)
+  }
+
+  lines.forEach(([id, txt, delay]) => setTimeout(() => type(id, txt), delay))
+
+  // barre de progression
+  setTimeout(() => {
+    document.getElementById('bbar-wrap').hidden = false
+    const bar = document.getElementById('bbar')
+    let w = 0
+    const t = setInterval(() => { bar.style.width = (w+=2)+'%'; if(w>=100){ clearInterval(t); setTimeout(endBoot, 300) } }, 16)
+  }, 2700)
+
+  // fin du boot → titre lettre par lettre
+  function endBoot() {
+    const boot = document.getElementById('boot')
+    boot.style.opacity = '0'
+    setTimeout(() => {
+      boot.style.display = 'none'
+      const el = document.querySelector('.glitch-title')
+      const txt = '404:ESCAPE'
+      el.textContent = ''
+      el.removeAttribute('data-text')
+      let i = 0
+      const t = setInterval(() => { el.textContent += txt[i++]; if(i>=txt.length){ clearInterval(t); el.setAttribute('data-text', txt) } }, 80)
+    }, 500)
+  }
+</script>
+
+</body>
+</html>
