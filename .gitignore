@@ -1,0 +1,5 @@
+node_modules/
+dist/
+404escape.db
+.env
+*.log

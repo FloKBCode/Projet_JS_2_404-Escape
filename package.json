@@ -1,0 +1,26 @@
+{
+  "name": "404-escape",
+  "version": "1.0.0",
+  "description": "Application desktop Electron de création et résolution de labyrinthes en pixel art",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.0.0",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.ynov.404escape",
+    "productName": "404 Escape",
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

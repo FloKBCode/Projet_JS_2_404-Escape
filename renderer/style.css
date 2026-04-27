@@ -1,0 +1,18 @@
+/* ============================================================
+   style.css — Styles pixel art / rétro gaming
+   Responsables : Marly + Sarah
+   ============================================================
+   Thème : écran de terminal années 80, fond noir, couleurs néon.
+   Police : Press Start 2P (Google Fonts) — ultra pixel art.
+   
+   VARIABLES CSS :
+   Toutes les couleurs sont définies ici en haut.
+   Si on veut changer une couleur, on ne change QU'ICI
+   et ça se répercute partout automatiquement.
+   
+   CONVENTION :
+   .hidden     → display: none (utilisé par app.js pour cacher des sections)
+   .section    → les grandes pages de l'app
+   .error      → messages d'erreur (rouge néon)
+   ============================================================ */
+
