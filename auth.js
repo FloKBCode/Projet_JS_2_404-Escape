@@ -47,7 +47,9 @@ async function register({ username, email, password }) {
     const hashedPassword = await bcrypt.hash(password, 10)
 
     // 3. Insérer l'utilisateur en base avec le hash (jamais le mot de passe en clair)
-    const userId = db.createUser({ username, email, password: hashedPassword, role: 'user' })
+    // ✅ FIX : on passe 'hashedPassword' (et non 'password') pour correspondre à database.js
+    const result = db.createUser({ username, email, hashedPassword, role: 'user' })
+    const userId = result.id
 
     // 4. Générer un token JWT pour connecter l'utilisateur automatiquement après inscription
     const token = jwt.sign(
@@ -124,7 +126,7 @@ function verifyToken(token) {
 // -------------------------------------------------------------
 function requireAdmin(token) {
   const result = verifyToken(token)
-  if (!result.valid)          return { authorized: false, message: result.message }
+  if (!result.valid)           return { authorized: false, message: result.message }
   if (result.role !== 'admin') return { authorized: false, message: 'Accès réservé à l\'administrateur.' }
   return { authorized: true, userId: result.userId }
 }

@@ -87,8 +87,8 @@ function generateDFS(rows, cols) {
   carve(1, 1)  // on commence toujours en (1,1)
 
   // Définit l'entrée (haut-gauche) et la sortie (bas-droite)
-  grid[0][1] = 0           // entrée
-  grid[rows - 1][cols - 2] = 0  // sortie
+  grid[0][1] = 0                    // entrée
+  grid[rows - 1][cols - 2] = 0     // sortie
 
   return grid
 }
@@ -262,8 +262,8 @@ function solve({ gridJSON }) {
 
 // Sauvegarde un labyrinthe en base (délègue à database.js)
 function create({ userId, name, size, difficulty, gridJSON }) {
-  const id = db.createLabyrinth({ userId, name, size, difficulty, gridJSON })
-  return { success: true, id }
+  const result = db.createLabyrinth({ userId, name, size, difficulty, gridJSON })
+  return { success: true, id: result.id }
 }
 
 // Récupère tous les labyrinthes d'un utilisateur
@@ -274,7 +274,8 @@ function getAll(userId) {
 
 // Modifie le nom d'un labyrinthe
 function update({ id, name }) {
-  db.updateLabyrinth({ id, name })
+  // ✅ FIX : db.updateLabyrinth attend (id, name) séparés, pas un objet
+  db.updateLabyrinth(id, name)
   return { success: true }
 }
 

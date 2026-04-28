@@ -24,10 +24,10 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 
 // On importe nos modules back-end
-const { initDB }    = require('./database')   // initialise la base SQLite
-const authHandlers  = require('./auth')        // fonctions inscription/connexion
-const labHandlers   = require('./labyrinth')   // fonctions génération/résolution
-const adminHandlers = require('./admin')       // fonctions admin (stats, users)
+const { initDB, getLabyrinthById } = require('./database')  // initialise la base SQLite
+const authHandlers  = require('./auth')       // fonctions inscription/connexion
+const labHandlers   = require('./labyrinth')  // fonctions génération/résolution
+const adminHandlers = require('./admin')      // fonctions admin (stats, users)
 
 // -------------------------------------------------------------
 // Création de la fenêtre principale
@@ -81,7 +81,7 @@ ipcMain.handle('lab:generate', async (event, data) => {
 })
 
 ipcMain.handle('lab:solve', async (event, data) => {
-  // data = { labyrinthJSON } — retourne le chemin solution (A*)
+  // data = { gridJSON } — retourne le chemin solution (A*)
   return await labHandlers.solve(data)
 })
 
@@ -93,6 +93,13 @@ ipcMain.handle('lab:create', async (event, data) => {
 ipcMain.handle('lab:getAll', async (event, userId) => {
   // Retourne tous les labyrinthes de l'utilisateur connecté
   return await labHandlers.getAll(userId)
+})
+
+// ✅ FIX : canal manquant — utilisé par app.js dans openLabyrinth()
+ipcMain.handle('lab:getById', async (event, id) => {
+  // Retourne un labyrinthe complet (avec sa grille JSON) par son id
+  const lab = getLabyrinthById(id)
+  return { success: !!lab, lab }
 })
 
 ipcMain.handle('lab:update', async (event, data) => {

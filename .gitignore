@@ -1,5 +1,5 @@
 node_modules/
 dist/
-404escape.db
+*.db
 .env
 *.log
