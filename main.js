@@ -21,21 +21,24 @@
 // ============================================================
 
 const { app, BrowserWindow, ipcMain } = require('electron')
-const path = require('path')
+const path   = require('path')
+const bcrypt = require('bcryptjs')
 
 // On importe nos modules back-end
-const { initDB, getLabyrinthById, createUser, getUserByEmail } = require('./database')
-const authHandlers  = require('./auth')       // fonctions inscription/connexion
-const labHandlers   = require('./labyrinth')  // fonctions génération/résolution
-const adminHandlers = require('./admin')      // fonctions admin (stats, users)
+const db           = require('./database')   // SQLite — toutes les fonctions CRUD
+const authHandlers = require('./auth')       // inscription / connexion / JWT
+const labHandlers  = require('./labyrinth')  // génération DFS/Kruskal + résolution A*
+// Note : admin.js est un fichier RENDERER (chargé dans index.html via <script>)
+//        Les fonctions admin sont donc gérées ici directement via db.*
 
-// ⚠️  TEMP — Création du compte admin au premier lancement
-// TODO : supprimer ces lignes une fois le compte admin créé
-const bcrypt = require('bcryptjs')
-initDB()
-if (!getUserByEmail('admin@404.com')) {
+// -------------------------------------------------------------
+// Création du compte admin au premier lancement
+// Ignoré si le compte existe déjà en base
+// -------------------------------------------------------------
+db.initDB()
+if (!db.getUserByEmail('admin@404.com')) {
   const hash = bcrypt.hashSync('admin123', 10)
-  createUser({ username: 'admin', email: 'admin@404.com', hashedPassword: hash, role: 'admin' })
+  db.createUser({ username: 'admin', email: 'admin@404.com', hashedPassword: hash, role: 'admin' })
   console.log('✅ Compte admin créé : admin@404.com / admin123')
 }
 
@@ -47,28 +50,22 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      // preload.js injecte ipcRenderer dans le renderer de façon sécurisée
+      // preload.js expose window.api au renderer de façon sécurisée
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,   // sécurité : le renderer est isolé de Node.js
       nodeIntegration: false,   // sécurité : pas de Node.js direct dans le front
     },
-    // TODO : ajouter une icône pixel art
     // icon: path.join(__dirname, 'renderer/assets/icon.png'),
     title: '404 : Escape',
   })
 
-  // Charge la page HTML principale
   win.loadFile('renderer/index.html')
-
-  // Ouvre les DevTools en développement (à retirer pour la version finale)
-  //win.webContents.openDevTools()
+  // win.webContents.openDevTools()  // décommenter pour déboguer
 }
 
 // -------------------------------------------------------------
 // Canaux IPC — AUTH (auth.js)
 // -------------------------------------------------------------
-// ipcMain.handle('nom-du-canal', handler)
-// Le renderer appellera : ipcRenderer.invoke('nom-du-canal', données)
 
 ipcMain.handle('auth:register', async (event, data) => {
   // data = { username, email, password }
@@ -82,67 +79,84 @@ ipcMain.handle('auth:login', async (event, data) => {
 })
 
 // -------------------------------------------------------------
-// Canaux IPC — LABYRINTHES (database.js + labyrinth.js)
+// Canaux IPC — LABYRINTHES (labyrinth.js + database.js)
 // -------------------------------------------------------------
 
-ipcMain.handle('lab:generate', async (event, data) => {
-  // data = { size: 'small'|'medium'|'large', difficulty: 1-10, userId }
-  return await labHandlers.generate(data)
+ipcMain.handle('lab:generate', (event, data) => {
+  // data = { size: 'small'|'medium'|'large', difficulty: 1-10 }
+  return labHandlers.generate(data)
 })
 
-ipcMain.handle('lab:solve', async (event, data) => {
-  // data = { gridJSON } — retourne le chemin solution (A*)
-  return await labHandlers.solve(data)
+ipcMain.handle('lab:solve', (event, data) => {
+  // data = { gridJSON } — retourne le chemin solution A*
+  return labHandlers.solve(data)
 })
 
-ipcMain.handle('lab:create', async (event, data) => {
-  // data = { name, size, difficulty, gridJSON, userId }
-  return await labHandlers.create(data)
+ipcMain.handle('lab:create', (event, data) => {
+  // data = { userId, name, size, difficulty, gridJSON }
+  return labHandlers.create(data)
 })
 
-ipcMain.handle('lab:getAll', async (event, userId) => {
+ipcMain.handle('lab:getAll', (event, userId) => {
   // Retourne tous les labyrinthes de l'utilisateur connecté
-  return await labHandlers.getAll(userId)
+  return labHandlers.getAll(userId)
 })
 
-// Canal pour ouvrir un labyrinthe existant depuis le dashboard
-ipcMain.handle('lab:getById', async (event, id) => {
-  // Retourne un labyrinthe complet (avec sa grille JSON) par son id
-  const lab = getLabyrinthById(id)
+ipcMain.handle('lab:getById', (event, id) => {
+  // Retourne un labyrinthe complet avec sa grille JSON
+  // Utilisé par app.js dans openLabyrinth()
+  const lab = db.getLabyrinthById(id)
   return { success: !!lab, lab }
 })
 
-ipcMain.handle('lab:update', async (event, data) => {
-  // data = { id, name } — on peut modifier le nom du labyrinthe
-  return await labHandlers.update(data)
+ipcMain.handle('lab:update', (event, data) => {
+  // data = { id, name }
+  return labHandlers.update(data)
 })
 
-ipcMain.handle('lab:delete', async (event, id) => {
-  return await labHandlers.delete(id)
+ipcMain.handle('lab:delete', (event, id) => {
+  return labHandlers.delete(id)
 })
 
 // -------------------------------------------------------------
-// Canaux IPC — ADMIN (admin.js)
+// Canaux IPC — ADMIN
+// Gérés directement ici via db.* car admin.js est côté renderer
 // -------------------------------------------------------------
 
-ipcMain.handle('admin:getStats', async () => {
-  return await adminHandlers.getStats()
+ipcMain.handle('admin:getStats', () => {
+  // Statistiques globales pour le dashboard admin
+  const totalUsers      = db.countUsers()
+  const totalLabyrinths = db.countLabyrinths()
+  const perUser         = db.countLabyrinthsPerUser()
+  const avgPerUser      = totalUsers > 0
+    ? (totalLabyrinths / totalUsers).toFixed(1)
+    : '0'
+  return { success: true, totalUsers, totalLabyrinths, avgPerUser, perUser }
 })
 
-ipcMain.handle('admin:getUsers', async () => {
-  return await adminHandlers.getUsersList()
+ipcMain.handle('admin:getUsers', () => {
+  // Tous les users enrichis de leur nombre de labyrinthes
+  const users    = db.getAllUsers()
+  const perUser  = db.countLabyrinthsPerUser()
+  const countMap = {}
+  for (const row of perUser) countMap[row.username] = row.count
+  return users.map(u => ({ ...u, labyrinth_count: countMap[u.username] || 0 }))
 })
 
-ipcMain.handle('admin:deleteUser', async (event, userId) => {
-  return await adminHandlers.deleteUser(userId)
+ipcMain.handle('admin:deleteUser', (event, userId) => {
+  // Supprime l'user ET tous ses labyrinthes (ON DELETE CASCADE dans SQLite)
+  db.deleteUserById(userId)
+  return { success: true }
 })
 
-ipcMain.handle('admin:getAllLabyrinths', async () => {
-  return await adminHandlers.getAllLabyrinths()
+ipcMain.handle('admin:getAllLabyrinths', () => {
+  // Tous les labyrinthes de tous les users avec leur pseudo
+  return db.getAllLabyrinths()
 })
 
-ipcMain.handle('admin:deleteLabyrinth', async (event, labId) => {
-  return await adminHandlers.deleteLabyrinth(labId)
+ipcMain.handle('admin:deleteLabyrinth', (event, labId) => {
+  db.deleteLabyrinthById(labId)
+  return { success: true }
 })
 
 // -------------------------------------------------------------
@@ -150,8 +164,7 @@ ipcMain.handle('admin:deleteLabyrinth', async (event, labId) => {
 // -------------------------------------------------------------
 
 app.whenReady().then(() => {
-  initDB()        // crée les tables SQLite si elles n'existent pas encore
-  createWindow()  // ouvre la fenêtre
+  createWindow()
 
   // Sur macOS, re-créer la fenêtre si on clique sur l'icône du dock
   app.on('activate', () => {
