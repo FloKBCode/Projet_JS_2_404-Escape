@@ -17,3 +17,8 @@
 //   Ce qui est transformé en appel IPC vers main.js.
 // ============================================================
 
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('api', {
+  invoke: (channel, data) => ipcRenderer.invoke(channel, data),
+})

@@ -47,7 +47,7 @@ async function register({ username, email, password }) {
     const hashedPassword = await bcrypt.hash(password, 10)
 
     // 3. Insérer l'utilisateur en base avec le hash (jamais le mot de passe en clair)
-    // ✅ FIX : on passe 'hashedPassword' (et non 'password') pour correspondre à database.js
+   
     const result = db.createUser({ username, email, hashedPassword, role: 'user' })
     const userId = result.id
 

@@ -24,10 +24,20 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 
 // On importe nos modules back-end
-const { initDB, getLabyrinthById } = require('./database')  // initialise la base SQLite
+const { initDB, getLabyrinthById, createUser, getUserByEmail } = require('./database')
 const authHandlers  = require('./auth')       // fonctions inscription/connexion
 const labHandlers   = require('./labyrinth')  // fonctions génération/résolution
 const adminHandlers = require('./admin')      // fonctions admin (stats, users)
+
+// ⚠️  TEMP — Création du compte admin au premier lancement
+// TODO : supprimer ces lignes une fois le compte admin créé
+const bcrypt = require('bcryptjs')
+initDB()
+if (!getUserByEmail('admin@404.com')) {
+  const hash = bcrypt.hashSync('admin123', 10)
+  createUser({ username: 'admin', email: 'admin@404.com', hashedPassword: hash, role: 'admin' })
+  console.log('✅ Compte admin créé : admin@404.com / admin123')
+}
 
 // -------------------------------------------------------------
 // Création de la fenêtre principale
@@ -51,7 +61,7 @@ function createWindow() {
   win.loadFile('renderer/index.html')
 
   // Ouvre les DevTools en développement (à retirer pour la version finale)
-  // win.webContents.openDevTools()
+  //win.webContents.openDevTools()
 }
 
 // -------------------------------------------------------------
@@ -95,7 +105,7 @@ ipcMain.handle('lab:getAll', async (event, userId) => {
   return await labHandlers.getAll(userId)
 })
 
-// ✅ FIX : canal manquant — utilisé par app.js dans openLabyrinth()
+// Canal pour ouvrir un labyrinthe existant depuis le dashboard
 ipcMain.handle('lab:getById', async (event, id) => {
   // Retourne un labyrinthe complet (avec sa grille JSON) par son id
   const lab = getLabyrinthById(id)
