@@ -101,7 +101,7 @@ if (registerForm) {
  */
 async function loadLabyrinthes() {
   try {
-    const result = await window.api.invoke('labyrinth:getAll');
+    const result = await window.api.invoke('lab:getAll');
     if (result.success) {
       renderLabyrinthList(result.labyrinthes);
     }
@@ -148,7 +148,7 @@ function renderLabyrinthList(labyrinthes) {
  */
 async function createLabyrinth(name, size, difficulty) {
   try {
-    const result = await window.api.invoke('labyrinth:create', { name, size, difficulty });
+    const result = await window.api.invoke('lab:create', { name, size, difficulty });
     if (result.success) {
       await loadLabyrinthes();
     } else {
@@ -164,7 +164,7 @@ async function createLabyrinth(name, size, difficulty) {
  */
 async function deleteLabyrinth(id) {
   try {
-    const result = await window.api.invoke('labyrinth:delete', { id });
+    const result = await window.api.invoke('lab:delete', { id });
     if (result.success) {
       await loadLabyrinthes();
     }
