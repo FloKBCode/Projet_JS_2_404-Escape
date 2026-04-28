@@ -1,55 +1,28 @@
-// ============================================================
-// database.js — Connexion SQLite et fonctions CRUD
-// Responsable : Sarah
-// ============================================================
-// Ce fichier est le "pont" entre l'application et la base de données.
-// Il contient :
-//   - La connexion à SQLite (un seul fichier .db sur le disque)
-//   - La création des tables au premier lancement (initDB)
-//   - Toutes les fonctions CRUD pour les users et les labyrinthes
-//
-// CRUD = Create, Read, Update, Delete (les 4 opérations de base sur une DB)
-//
-// POURQUOI SQLITE ?
-//   SQLite stocke toute la base dans UN seul fichier (404escape.db).
-//   Pas besoin d'installer un serveur de base de données séparé.
-//   C'est parfait pour une application desktop comme la nôtre.
-//
-// COMMENT ÇA MARCHE ?
-//   better-sqlite3 est "synchrone" : pas besoin d'async/await.
-//   db.prepare('SELECT ...').get()   ──▶ retourne UN résultat
-//   db.prepare('SELECT ...').all()   ──▶ retourne TOUS les résultats
-//   db.prepare('INSERT ...').run()   ──▶ exécute et retourne { lastInsertRowid }
-// ============================================================
-
 // database.js — 404:ESCAPE
-// 💻 Sarah — Séance 1 : connexion SQLite, tables, CRUD users
+// 💻 Sarah — Séance 2 : CRUD complet users + labyrinthes
 // ============================================================
 
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Connexion à la base de données (créée automatiquement si elle n'existe pas)
 const db = new Database(path.join(__dirname, 'escape.db'));
 
 // ─────────────────────────────────────────────
 // INITIALISATION DES TABLES
 // ─────────────────────────────────────────────
 
-function initDatabase() {
-  // Table des utilisateurs
+function initDB() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      username  TEXT    NOT NULL UNIQUE,
-      email     TEXT    NOT NULL UNIQUE,
-      password  TEXT    NOT NULL,
-      role      TEXT    NOT NULL DEFAULT 'user',
-      created_at TEXT   DEFAULT (datetime('now'))
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      username   TEXT    NOT NULL UNIQUE,
+      email      TEXT    NOT NULL UNIQUE,
+      password   TEXT    NOT NULL,
+      role       TEXT    NOT NULL DEFAULT 'user',
+      created_at TEXT    DEFAULT (datetime('now'))
     )
   `);
 
-  // Table des labyrinthes
   db.exec(`
     CREATE TABLE IF NOT EXISTS labyrinthes (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,13 +45,9 @@ function initDatabase() {
 
 /**
  * Crée un nouvel utilisateur.
- * @param {string} username
- * @param {string} email
- * @param {string} hashedPassword — mot de passe déjà hashé via bcrypt
- * @param {string} role — 'user' par défaut, 'admin' si besoin
- * @returns {object} l'utilisateur inséré
+ * @param {object} { username, email, hashedPassword, role }
  */
-function createUser(username, email, hashedPassword, role = 'user') {
+function createUser({ username, email, hashedPassword, role = 'user' }) {
   const stmt = db.prepare(`
     INSERT INTO users (username, email, password, role)
     VALUES (?, ?, ?, ?)
@@ -89,22 +58,114 @@ function createUser(username, email, hashedPassword, role = 'user') {
 
 /**
  * Récupère un utilisateur par son email.
- * @param {string} email
- * @returns {object|undefined} l'utilisateur ou undefined si non trouvé
  */
 function getUserByEmail(email) {
-  const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-  return stmt.get(email);
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 }
 
 /**
  * Récupère un utilisateur par son ID.
- * @param {number} id
- * @returns {object|undefined}
  */
 function getUserById(id) {
-  const stmt = db.prepare('SELECT id, username, email, role, created_at FROM users WHERE id = ?');
-  return stmt.get(id);
+  return db.prepare('SELECT id, username, email, role, created_at FROM users WHERE id = ?').get(id);
+}
+
+/**
+ * Récupère tous les utilisateurs (admin).
+ */
+function getAllUsers() {
+  return db.prepare('SELECT id, username, email, role, created_at FROM users').all();
+}
+
+/**
+ * Supprime un utilisateur par son ID (admin).
+ */
+function deleteUserById(id) {
+  return db.prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
+/**
+ * Compte le nombre total d'utilisateurs.
+ */
+function countUsers() {
+  return db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+}
+
+// ─────────────────────────────────────────────
+// CRUD — LABYRINTHES
+// ─────────────────────────────────────────────
+
+/**
+ * Crée un labyrinthe.
+ * @param {object} { userId, name, size, difficulty, gridJSON }
+ */
+function createLabyrinth({ userId, name, size, difficulty, gridJSON }) {
+  const stmt = db.prepare(`
+    INSERT INTO labyrinthes (user_id, name, size, difficulty, data)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const result = stmt.run(userId, name, size, difficulty, gridJSON);
+  return { id: result.lastInsertRowid, userId, name, size, difficulty };
+}
+
+/**
+ * Récupère tous les labyrinthes d'un utilisateur.
+ * Un user ne voit QUE ses labyrinthes.
+ */
+function getLabyrinthsByUser(userId) {
+  return db.prepare('SELECT * FROM labyrinthes WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+}
+
+/**
+ * Récupère un labyrinthe par son ID.
+ */
+function getLabyrinthById(id) {
+  return db.prepare('SELECT * FROM labyrinthes WHERE id = ?').get(id);
+}
+
+/**
+ * Met à jour le nom d'un labyrinthe.
+ */
+function updateLabyrinth(id, name) {
+  return db.prepare('UPDATE labyrinthes SET name = ? WHERE id = ?').run(name, id);
+}
+
+/**
+ * Supprime un labyrinthe par son ID.
+ */
+function deleteLabyrinthById(id) {
+  return db.prepare('DELETE FROM labyrinthes WHERE id = ?').run(id);
+}
+
+/**
+ * Récupère tous les labyrinthes (admin).
+ */
+function getAllLabyrinths() {
+  return db.prepare(`
+    SELECT l.*, u.username 
+    FROM labyrinthes l
+    JOIN users u ON l.user_id = u.id
+    ORDER BY l.created_at DESC
+  `).all();
+}
+
+/**
+ * Compte le nombre total de labyrinthes.
+ */
+function countLabyrinths() {
+  return db.prepare('SELECT COUNT(*) as count FROM labyrinthes').get().count;
+}
+
+/**
+ * Compte le nombre de labyrinthes par utilisateur.
+ */
+function countLabyrinthsPerUser() {
+  return db.prepare(`
+    SELECT u.username, COUNT(l.id) as count
+    FROM users u
+    LEFT JOIN labyrinthes l ON u.id = l.user_id
+    GROUP BY u.id
+  `).all();
 }
 
 // ─────────────────────────────────────────────
@@ -113,11 +174,23 @@ function getUserById(id) {
 
 module.exports = {
   db,
-  initDatabase,
+  initDB,
   // Users
   createUser,
   getUserByEmail,
   getUserById,
+  getAllUsers,
+  deleteUserById,
+  countUsers,
+  // Labyrinthes
+  createLabyrinth,
+  getLabyrinthsByUser,
+  getLabyrinthById,
+  updateLabyrinth,
+  deleteLabyrinthById,
+  getAllLabyrinths,
+  countLabyrinths,
+  countLabyrinthsPerUser,
 };
 
 // ─────────────────────────────────────────────
@@ -125,18 +198,20 @@ module.exports = {
 // ─────────────────────────────────────────────
 
 if (require.main === module) {
-  initDatabase();
+  initDB();
 
-  // Test : créer un utilisateur fictif
   try {
-    const testUser = createUser('sarah_test', 'sarah@test.com', 'hash_bcrypt_placeholder');
-    console.log('👤 Utilisateur créé :', testUser);
+    const user = createUser({ username: 'sarah_test', email: 'sarah@test.com', hashedPassword: 'hash_placeholder' });
+    console.log('👤 Utilisateur créé :', user);
+    console.log('🔍 getUserByEmail :', getUserByEmail('sarah@test.com'));
 
-    const found = getUserByEmail('sarah@test.com');
-    console.log('🔍 getUserByEmail :', found);
+    const lab = createLabyrinth({ userId: user.id, name: 'Labyrinthe Test', size: 'moyen', difficulty: 3, gridJSON: '{}' });
+    console.log('🗺️  Labyrinthe créé :', lab);
+    console.log('🔍 getLabyrinthsByUser :', getLabyrinthsByUser(user.id));
 
-    const byId = getUserById(testUser.id);
-    console.log('🔍 getUserById :', byId);
+    console.log('📊 countUsers :', countUsers());
+    console.log('📊 countLabyrinths :', countLabyrinths());
+    console.log('📊 countLabyrinthsPerUser :', countLabyrinthsPerUser());
   } catch (err) {
     console.error('❌ Erreur test :', err.message);
   }

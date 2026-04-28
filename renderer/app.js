@@ -1,76 +1,26 @@
-// ============================================================
-// renderer/app.js — Interactions front-end et appels IPC
-// Responsable : Sarah
-// ============================================================
-// Ce fichier est le "cerveau" du côté interface graphique.
-// Il s'exécute dans la fenêtre du navigateur Electron (renderer).
-//
-// SON RÔLE :
-//   1. Écouter les clics, soumissions de formulaires, etc.
-//   2. Envoyer des requêtes au back-end via window.api (IPC)
-//   3. Recevoir les réponses et mettre à jour l'interface (DOM)
-//
-// COMMENT PARLER AU BACK-END ?
-//   On utilise window.api.invoke('nom-du-canal', données)
-//   C'est le preload.js qui expose cette fonction de façon sécurisée.
-//   Exemple :
-//     const result = await window.api.invoke('auth:login', { email, password })
-//     if (result.success) { /* connexion réussie */ }
-//
-// ÉTAT DE L'APPLICATION :
-//   On garde en mémoire l'utilisateur connecté et son token JWT.
-//   Toutes les pages de l'app sont dans index.html,
-//   on affiche/cache les sections selon l'état de connexion.
-//
-// IMPORTANT : ce fichier ne fait PAS de SQL, ne lit PAS de fichiers.
-//   Tout ça c'est le rôle de database.js côté back.
-// ============================================================
-
 // app.js — 404:ESCAPE
-// 💻 Sarah — Séance 1 : écouteurs d'événements de base (renderer process)
-// =========================================================================
-// Ce fichier tourne côté renderer (front). Il écoute les actions utilisateur
-// et communique avec le main process via ipcRenderer (Electron).
-// =========================================================================
-
-const { ipcRenderer } = require('electron');
+// 💻 Sarah — Séance 2 : IPC corrigé (window.api) + CRUD labyrinthes
+// ====================================================================
+// ⚠️  On utilise window.api.invoke() et NON ipcRenderer directement
+//     car contextIsolation: true est activé dans main.js (Electron)
+// ====================================================================
 
 // ─────────────────────────────────────────────
 // UTILITAIRES UI
 // ─────────────────────────────────────────────
 
-/**
- * Affiche un message d'erreur sous le formulaire.
- * @param {string} elementId — id de la div d'erreur
- * @param {string} message
- */
 function showError(elementId, message) {
   const el = document.getElementById(elementId);
-  if (el) {
-    el.textContent = message;
-    el.style.display = 'block';
-  }
+  if (el) { el.textContent = message; el.style.display = 'block'; }
 }
 
-/**
- * Cache un message d'erreur.
- * @param {string} elementId
- */
 function hideError(elementId) {
   const el = document.getElementById(elementId);
-  if (el) {
-    el.textContent = '';
-    el.style.display = 'none';
-  }
+  if (el) { el.textContent = ''; el.style.display = 'none'; }
 }
 
-/**
- * Bascule entre les pages (login ↔ inscription ↔ dashboard).
- * @param {string} pageId — id de la section à afficher
- */
 function showPage(pageId) {
-  const pages = document.querySelectorAll('.page');
-  pages.forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const target = document.getElementById(pageId);
   if (target) target.classList.add('active');
 }
@@ -80,7 +30,6 @@ function showPage(pageId) {
 // ─────────────────────────────────────────────
 
 const loginForm = document.getElementById('login-form');
-
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -95,12 +44,10 @@ if (loginForm) {
     }
 
     try {
-      // Envoi au main process via IPC
-      const result = await ipcRenderer.invoke('auth:login', { email, password });
-
+      const result = await window.api.invoke('auth:login', { email, password });
       if (result.success) {
-        // Stocker le token JWT en mémoire (pas dans localStorage — Electron)
         window.__token = result.token;
+        await loadLabyrinthes();
         showPage('page-dashboard');
       } else {
         showError('login-error', result.message || 'Identifiants incorrects.');
@@ -117,7 +64,6 @@ if (loginForm) {
 // ─────────────────────────────────────────────
 
 const registerForm = document.getElementById('register-form');
-
 if (registerForm) {
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -133,10 +79,8 @@ if (registerForm) {
     }
 
     try {
-      const result = await ipcRenderer.invoke('auth:register', { username, email, password });
-
+      const result = await window.api.invoke('auth:register', { username, email, password });
       if (result.success) {
-        // Rediriger vers le login après inscription réussie
         showPage('page-login');
       } else {
         showError('register-error', result.message || 'Erreur lors de l\'inscription.');
@@ -149,41 +93,128 @@ if (registerForm) {
 }
 
 // ─────────────────────────────────────────────
-// NAVIGATION — LIENS ENTRE PAGES
+// CRUD LABYRINTHES
 // ─────────────────────────────────────────────
 
-// Lien "Pas encore de compte ? S'inscrire"
-const goToRegister = document.getElementById('go-to-register');
-if (goToRegister) {
-  goToRegister.addEventListener('click', (e) => {
+/**
+ * Charge et affiche les labyrinthes de l'utilisateur connecté.
+ */
+async function loadLabyrinthes() {
+  try {
+    const result = await window.api.invoke('labyrinth:getAll');
+    if (result.success) {
+      renderLabyrinthList(result.labyrinthes);
+    }
+  } catch (err) {
+    console.error('❌ loadLabyrinthes error:', err);
+  }
+}
+
+/**
+ * Affiche la liste des labyrinthes dans le dashboard.
+ */
+function renderLabyrinthList(labyrinthes) {
+  const container = document.getElementById('labyrinth-list');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (labyrinthes.length === 0) {
+    container.innerHTML = '<p class="empty">Aucun labyrinthe pour l\'instant.</p>';
+    return;
+  }
+
+  labyrinthes.forEach(lab => {
+    const div = document.createElement('div');
+    div.classList.add('labyrinth-item');
+    div.innerHTML = `
+      <span>${lab.name} — ${lab.size} — Difficulté ${lab.difficulty}</span>
+      <button class="btn-delete" data-id="${lab.id}">Supprimer</button>
+    `;
+    container.appendChild(div);
+  });
+
+  // Boutons supprimer
+  container.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = parseInt(btn.dataset.id);
+      await deleteLabyrinth(id);
+    });
+  });
+}
+
+/**
+ * Crée un nouveau labyrinthe.
+ */
+async function createLabyrinth(name, size, difficulty) {
+  try {
+    const result = await window.api.invoke('labyrinth:create', { name, size, difficulty });
+    if (result.success) {
+      await loadLabyrinthes();
+    } else {
+      console.error('❌ createLabyrinth:', result.message);
+    }
+  } catch (err) {
+    console.error('❌ createLabyrinth error:', err);
+  }
+}
+
+/**
+ * Supprime un labyrinthe par son ID.
+ */
+async function deleteLabyrinth(id) {
+  try {
+    const result = await window.api.invoke('labyrinth:delete', { id });
+    if (result.success) {
+      await loadLabyrinthes();
+    }
+  } catch (err) {
+    console.error('❌ deleteLabyrinth error:', err);
+  }
+}
+
+// ─────────────────────────────────────────────
+// MODALE CRÉATION LABYRINTHE
+// ─────────────────────────────────────────────
+
+const createForm = document.getElementById('create-labyrinth-form');
+if (createForm) {
+  createForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    showPage('page-register');
-  });
-}
 
-// Lien "Déjà un compte ? Se connecter"
-const goToLogin = document.getElementById('go-to-login');
-if (goToLogin) {
-  goToLogin.addEventListener('click', (e) => {
-    e.preventDefault();
-    showPage('page-login');
-  });
-}
+    const name       = document.getElementById('lab-name')?.value.trim();
+    const size       = document.getElementById('lab-size')?.value;
+    const difficulty = parseInt(document.getElementById('lab-difficulty')?.value);
 
-// ─────────────────────────────────────────────
-// DÉCONNEXION
-// ─────────────────────────────────────────────
+    if (!name || !size || !difficulty) return;
 
-const logoutBtn = document.getElementById('btn-logout');
-if (logoutBtn) {
-  logoutBtn.addEventListener('click', () => {
-    window.__token = null;
-    showPage('page-login');
+    await createLabyrinth(name, size, difficulty);
+    createForm.reset();
+    document.getElementById('modal-create')?.classList.remove('active');
   });
 }
 
 // ─────────────────────────────────────────────
-// INIT — Page affichée au démarrage
+// NAVIGATION
+// ─────────────────────────────────────────────
+
+document.getElementById('go-to-register')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('page-register');
+});
+
+document.getElementById('go-to-login')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  showPage('page-login');
+});
+
+document.getElementById('btn-logout')?.addEventListener('click', () => {
+  window.__token = null;
+  showPage('page-login');
+});
+
+// ─────────────────────────────────────────────
+// INIT
 // ─────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
