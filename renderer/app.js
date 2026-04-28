@@ -5,30 +5,33 @@
 // ====================================================
 
 // ─────────────────────────────────────────────────────
-// ÉTAT GLOBAL
-// ─────────────────────────────────────────────────────
-let currentUser     = null   // { id, username, email, role }
-let currentToken    = null   // token JWT
-let currentGrid     = null   // grille du labyrinthe affiché
-let selectedSize    = 'small' // taille sélectionnée sur la page labyrinthe
+// app.js — 404:ESCAPE
 
 // ─────────────────────────────────────────────────────
-// NAVIGATION — goToPage()
-// Appelée depuis le HTML : onclick="goToPage('dashboard')"
+// ÉTAT GLOBAL
+// ─────────────────────────────────────────────────────
+let currentUser  = null
+let currentToken = null
+let currentGrid  = null
+let selectedSize = 'small'
+
+// ─────────────────────────────────────────────────────
+// NAVIGATION
 // ─────────────────────────────────────────────────────
 function goToPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'))
   const target = document.getElementById('page-' + name)
   if (target) target.classList.remove('hidden')
 
-  // Actions au changement de page
-  if (name === 'dashboard') loadLabyrinthes()
-  if (name === 'admin')     initAdminPage()
+  // musique selon la page
+  if (name === 'login')      playMenuMusic()
+  if (name === 'dashboard')  { stopBgMusic(); loadLabyrinthes() }
+  if (name === 'labyrinth')  playGameMusic()
+  if (name === 'admin')      { stopBgMusic(); initAdminPage() }
 }
 
 // ─────────────────────────────────────────────────────
-// ONGLETS LOGIN / INSCRIPTION — switchTab()
-// Appelée depuis le HTML : onclick="switchTab('login')"
+// ONGLETS LOGIN / INSCRIPTION
 // ─────────────────────────────────────────────────────
 function switchTab(tab) {
   const formLogin    = document.getElementById('form-login')
@@ -50,8 +53,7 @@ function switchTab(tab) {
 }
 
 // ─────────────────────────────────────────────────────
-// CONNEXION — handleLogin()
-// Appelée depuis le HTML : onsubmit="handleLogin(event)"
+// CONNEXION
 // ─────────────────────────────────────────────────────
 async function handleLogin(event) {
   event.preventDefault()
@@ -65,6 +67,7 @@ async function handleLogin(event) {
   if (!email || !password) {
     errorEl.textContent = 'Veuillez remplir tous les champs.'
     errorEl.hidden = false
+    soundError()
     return
   }
 
@@ -75,31 +78,31 @@ async function handleLogin(event) {
       currentUser  = result.user
       currentToken = result.token
 
-      // Met à jour le header du dashboard
       const greeting = document.getElementById('user-greeting')
       if (greeting) greeting.textContent = '> ' + result.user.username.toUpperCase()
 
-      // Affiche le bouton admin si c'est un admin
       const btnAdmin = document.getElementById('btn-admin')
       if (btnAdmin && result.user.role === 'admin') btnAdmin.hidden = false
 
+      soundLogin()
       goToPage('dashboard')
 
     } else {
       errorEl.textContent = result.message || 'Email ou mot de passe incorrect.'
       errorEl.hidden = false
+      soundError()
     }
 
   } catch (err) {
     errorEl.textContent = 'Erreur de connexion. Réessaie.'
     errorEl.hidden = false
+    soundError()
     console.error('[login]', err)
   }
 }
 
 // ─────────────────────────────────────────────────────
-// INSCRIPTION — handleRegister()
-// Appelée depuis le HTML : onsubmit="handleRegister(event)"
+// INSCRIPTION
 // ─────────────────────────────────────────────────────
 async function handleRegister(event) {
   event.preventDefault()
@@ -114,6 +117,7 @@ async function handleRegister(event) {
   if (!username || !email || !password) {
     errorEl.textContent = 'Veuillez remplir tous les champs.'
     errorEl.hidden = false
+    soundError()
     return
   }
 
@@ -124,41 +128,40 @@ async function handleRegister(event) {
       currentUser  = result.user
       currentToken = result.token
 
-      // Connexion automatique après inscription
       const greeting = document.getElementById('user-greeting')
       if (greeting) greeting.textContent = '> ' + result.user.username.toUpperCase()
 
+      soundLogin()
       showToast('Bienvenue ' + username + ' !')
       goToPage('dashboard')
 
     } else {
       errorEl.textContent = result.message || 'Erreur lors de l\'inscription.'
       errorEl.hidden = false
+      soundError()
     }
 
   } catch (err) {
     errorEl.textContent = 'Erreur serveur. Réessaie.'
     errorEl.hidden = false
+    soundError()
     console.error('[register]', err)
   }
 }
 
 // ─────────────────────────────────────────────────────
-// DÉCONNEXION — logout()
-// Appelée depuis le HTML : onclick="logout()"
+// DÉCONNEXION
 // ─────────────────────────────────────────────────────
 function logout() {
   currentUser  = null
   currentToken = null
   currentGrid  = null
 
-  // Reset le bouton admin
   const btnAdmin = document.getElementById('btn-admin')
   if (btnAdmin) btnAdmin.hidden = true
 
-  // Retour à la page login sur l'onglet connexion
   switchTab('login')
-  goToPage('login')
+  goToPage('login') // relance la musique d'accueil
 }
 
 // ─────────────────────────────────────────────────────
@@ -202,7 +205,6 @@ async function loadLabyrinthes() {
   }
 }
 
-// Ouvre un labyrinthe existant
 async function openLabyrinth(id) {
   try {
     const result = await window.api.invoke('lab:getById', id)
@@ -211,17 +213,17 @@ async function openLabyrinth(id) {
       const titleEl = document.getElementById('lab-page-title')
       if (titleEl) titleEl.textContent = result.lab.name.toUpperCase()
       drawMaze(currentGrid)
-      goToPage('labyrinth')
+      goToPage('labyrinth') // lance la musique de jeu
     }
   } catch (err) {
     console.error('[openLabyrinth]', err)
   }
 }
 
-// Supprime un labyrinthe
 async function deleteLabyrinth(id, name) {
   if (!confirm(`Supprimer "${name}" ?`)) return
   try {
+    soundDelete()
     await window.api.invoke('lab:delete', id)
     showToast(name + ' supprimé')
     loadLabyrinthes()
@@ -231,7 +233,7 @@ async function deleteLabyrinth(id, name) {
 }
 
 // ─────────────────────────────────────────────────────
-// MODALE CRÉATION — openModal / closeModal
+// MODALE
 // ─────────────────────────────────────────────────────
 function openModal(id) {
   const modal = document.getElementById(id)
@@ -244,13 +246,11 @@ function closeModal(id) {
 }
 
 function closeModalOutside(event, id) {
-  // Ferme la modale si on clique sur le fond (backdrop)
   if (event.target.id === id) closeModal(id)
 }
 
 // ─────────────────────────────────────────────────────
-// CRÉATION D'UN LABYRINTHE — handleCreateLabyrinth()
-// Appelée depuis le HTML : onsubmit="handleCreateLabyrinth(event)"
+// CRÉATION D'UN LABYRINTHE
 // ─────────────────────────────────────────────────────
 async function handleCreateLabyrinth(event) {
   event.preventDefault()
@@ -262,20 +262,18 @@ async function handleCreateLabyrinth(event) {
   if (!name) return
 
   try {
-    // 1. Génère la grille
     const genResult = await window.api.invoke('lab:generate', {
       size, difficulty, userId: currentUser.id
     })
 
     if (!genResult.success) return
 
-    // 2. Sauvegarde en base
     const saveResult = await window.api.invoke('lab:create', {
-      userId:    currentUser.id,
+      userId:   currentUser.id,
       name,
       size,
       difficulty,
-      gridJSON:  genResult.gridJSON
+      gridJSON: genResult.gridJSON
     })
 
     if (saveResult.success) {
@@ -291,22 +289,20 @@ async function handleCreateLabyrinth(event) {
 }
 
 // ─────────────────────────────────────────────────────
-// PAGE LABYRINTHE — generateMaze / solveMaze / clearSolution
+// PAGE LABYRINTHE
 // ─────────────────────────────────────────────────────
-
-// Sélection de la taille sur la page labyrinthe
 function selectSize(btn) {
   document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
   selectedSize = btn.dataset.size
 }
 
-// Génère et affiche un labyrinthe
 async function generateMaze() {
   const difficulty = parseInt(document.getElementById('difficulty').value)
-
   const overlay = document.getElementById('canvas-overlay')
   if (overlay) overlay.classList.remove('hidden')
+
+  soundGenerate()
 
   try {
     const result = await window.api.invoke('lab:generate', {
@@ -328,10 +324,10 @@ async function generateMaze() {
   }
 }
 
-// Résout le labyrinthe avec A*
 async function solveMaze() {
   if (!currentGrid) {
     showToast('Génère d\'abord un labyrinthe !')
+    soundError()
     return
   }
 
@@ -341,10 +337,12 @@ async function solveMaze() {
     })
 
     if (result.success) {
+      soundSolve()
       drawSolutionPath(result.path)
       document.getElementById('btn-clear').classList.remove('hidden')
     } else {
       showToast('Aucune solution trouvée.')
+      soundError()
     }
 
   } catch (err) {
@@ -352,7 +350,6 @@ async function solveMaze() {
   }
 }
 
-// Efface le chemin solution (redessine le labyrinthe sans le chemin)
 function clearSolution() {
   if (currentGrid) {
     drawMaze(currentGrid)
@@ -370,7 +367,6 @@ function drawMaze(grid) {
   const cols     = grid[0].length
   const cellSize = Math.floor(Math.min(canvas.width / cols, canvas.height / rows))
 
-  // Redimensionne le canvas à la bonne taille
   canvas.width  = cols * cellSize
   canvas.height = rows * cellSize
 
@@ -381,25 +377,23 @@ function drawMaze(grid) {
     }
   }
 
-  // Entrée : vert néon
   ctx.fillStyle = '#00FF41'
   ctx.fillRect(1 * cellSize, 0, cellSize, cellSize)
 
-  // Sortie : rouge néon
   ctx.fillStyle = '#FF003C'
   ctx.fillRect((cols - 2) * cellSize, (rows - 1) * cellSize, cellSize, cellSize)
 }
 
-// Anime le chemin A* case par case
 function drawSolutionPath(path) {
   const canvas   = document.getElementById('maze-canvas')
   const ctx      = canvas.getContext('2d')
   const cellSize = Math.floor(canvas.width / currentGrid[0].length)
 
-  let i = 1  // on saute la case d'entrée (déjà en vert)
+  let i = 1
   const interval = setInterval(() => {
     if (i >= path.length - 1) {
       clearInterval(interval)
+      soundWin()
       return
     }
     const { r, c } = path[i]
@@ -410,8 +404,7 @@ function drawSolutionPath(path) {
 }
 
 // ─────────────────────────────────────────────────────
-// TOAST — showToast()
-// Notification pixel art en bas de l'écran
+// TOAST
 // ─────────────────────────────────────────────────────
 function showToast(message) {
   const toast = document.getElementById('toast')

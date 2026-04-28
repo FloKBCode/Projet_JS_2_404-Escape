@@ -186,10 +186,11 @@
 
 <div id="toast" class="toast hidden"></div>
 
+<!-- sounds.js est dans assets/sounds/ -->
+<script src="./assets/sounds/sounds.js"></script>
 <script src="app.js"></script>
 <script src="../admin.js"></script>
 <script>
-  // curseur pixel
   const cur = document.getElementById('cursor')
   document.addEventListener('mousemove', e => { cur.style.left = e.clientX+'px'; cur.style.top = e.clientY+'px' })
   document.querySelectorAll('button,input,select').forEach(el => {
@@ -197,7 +198,6 @@
     el.addEventListener('mouseleave', () => cur.classList.remove('hover'))
   })
 
-  // boot screen
   const lines = [
     ['b1', '> INITIALISATION DU SYSTEME...', 0],
     ['b2', '> CHARGEMENT DES MODULES...',    700],
@@ -205,7 +205,6 @@
     ['b4', '> ACCES AUTORISE.',              2100],
   ]
 
-  // écrit un texte lettre par lettre
   const type = (id, txt, speed=35) => {
     const el = document.getElementById(id)
     let i = 0
@@ -214,7 +213,6 @@
 
   lines.forEach(([id, txt, delay]) => setTimeout(() => type(id, txt), delay))
 
-  // barre de progression
   setTimeout(() => {
     document.getElementById('bbar-wrap').hidden = false
     const bar = document.getElementById('bbar')
@@ -222,12 +220,13 @@
     const t = setInterval(() => { bar.style.width = (w+=2)+'%'; if(w>=100){ clearInterval(t); setTimeout(endBoot, 300) } }, 16)
   }, 2700)
 
-  // fin du boot → titre lettre par lettre
   function endBoot() {
     const boot = document.getElementById('boot')
     boot.style.opacity = '0'
     setTimeout(() => {
       boot.style.display = 'none'
+      soundBoot()
+      playMenuMusic()
       const el = document.querySelector('.glitch-title')
       const txt = '404:ESCAPE'
       el.textContent = ''
