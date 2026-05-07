@@ -99,6 +99,7 @@
     <div class="topbar-nav">
       <button class="btn-icon" id="btn-solve" onclick="solveMaze()">RESOUDRE</button>
       <button class="btn-icon danger hidden" id="btn-clear" onclick="clearSolution()">EFFACER</button>
+      <button class="btn-icon" id="btn-save-lab" onclick="openModal('modal-save')">SAUVEGARDER</button>
     </div>
   </header>
   <div class="controls-bar">
@@ -236,6 +237,27 @@
     }, 500)
   }
 </script>
+ <!-- MODALE SAUVEGARDER depuis la page labyrinthe -->
+<div id="modal-save" class="modal-backdrop hidden" onclick="closeModalOutside(event,'modal-save')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">SAUVEGARDER</h2>
+      <button class="btn-icon" onclick="closeModal('modal-save')">X</button>
+    </div>
+    <form onsubmit="handleSaveLabyrinth(event)">
+      <div class="modal-body">
+        <div class="field-group">
+          <label>NOM DU LABYRINTHE</label>
+          <input type="text" id="save-lab-name" placeholder="MON_LABYRINTHE" maxlength="30" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('modal-save')">ANNULER</button>
+        <button type="submit" class="btn-primary">SAUVEGARDER</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 </body>
 </html>

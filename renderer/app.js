@@ -425,3 +425,38 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
+// ─────────────────────────────────────────────────────
+// SAUVEGARDE depuis la page labyrinthe
+// ─────────────────────────────────────────────────────
+async function handleSaveLabyrinth(event) {
+  event.preventDefault()
+
+  if (!currentGrid) {
+    showToast('Génère d\'abord un labyrinthe !')
+    return
+  }
+
+  const name = document.getElementById('save-lab-name').value.trim()
+  if (!name) return
+
+  try {
+    const result = await window.api.invoke('lab:create', {
+      userId:    currentUser.id,
+      name,
+      size:      selectedSize,
+      difficulty: parseInt(document.getElementById('difficulty').value),
+      gridJSON:  JSON.stringify(currentGrid)
+    })
+
+    if (result.success) {
+      closeModal('modal-save')
+      document.getElementById('save-lab-name').value = ''
+      soundLogin()
+      showToast('"' + name + '" sauvegardé !')
+    }
+
+  } catch (err) {
+    console.error('[handleSaveLabyrinth]', err)
+    showToast('Erreur lors de la sauvegarde.')
+  }
+}
