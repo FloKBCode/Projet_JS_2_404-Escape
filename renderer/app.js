@@ -1,11 +1,4 @@
 // app.js — 404:ESCAPE
-// Réécrit pour correspondre exactement à index.html
-// ====================================================
-// Utilise window.api.invoke() (contextIsolation: true)
-// ====================================================
-
-// ─────────────────────────────────────────────────────
-// app.js — 404:ESCAPE
 
 // ─────────────────────────────────────────────────────
 // ÉTAT GLOBAL
@@ -15,6 +8,11 @@ let currentToken = null
 let currentGrid  = null
 let selectedSize = 'small'
 
+// timer
+let timerInterval = null
+let timerSeconds  = 0
+
+
 // ─────────────────────────────────────────────────────
 // NAVIGATION
 // ─────────────────────────────────────────────────────
@@ -23,15 +21,15 @@ function goToPage(name) {
   const target = document.getElementById('page-' + name)
   if (target) target.classList.remove('hidden')
 
-  // musique selon la page
-  if (name === 'login')      playMenuMusic()
-  if (name === 'dashboard')  { stopBgMusic(); loadLabyrinthes() }
-  if (name === 'labyrinth')  playGameMusic()
-  if (name === 'admin')      { stopBgMusic(); initAdminPage() }
+  if (name === 'login')     playMenuMusic()
+  if (name === 'dashboard') { stopBgMusic(); loadLabyrinthes() }
+  if (name === 'labyrinth') playGameMusic()
+  if (name === 'admin')     { stopBgMusic(); initAdminPage() }
 }
 
+
 // ─────────────────────────────────────────────────────
-// ONGLETS LOGIN / INSCRIPTION
+// ONGLETS
 // ─────────────────────────────────────────────────────
 function switchTab(tab) {
   const formLogin    = document.getElementById('form-login')
@@ -51,6 +49,7 @@ function switchTab(tab) {
     tabLogin.classList.remove('active')
   }
 }
+
 
 // ─────────────────────────────────────────────────────
 // CONNEXION
@@ -101,6 +100,7 @@ async function handleLogin(event) {
   }
 }
 
+
 // ─────────────────────────────────────────────────────
 // INSCRIPTION
 // ─────────────────────────────────────────────────────
@@ -149,6 +149,7 @@ async function handleRegister(event) {
   }
 }
 
+
 // ─────────────────────────────────────────────────────
 // DÉCONNEXION
 // ─────────────────────────────────────────────────────
@@ -156,16 +157,18 @@ function logout() {
   currentUser  = null
   currentToken = null
   currentGrid  = null
+  stopTimer()
 
   const btnAdmin = document.getElementById('btn-admin')
   if (btnAdmin) btnAdmin.hidden = true
 
   switchTab('login')
-  goToPage('login') // relance la musique d'accueil
+  goToPage('login')
 }
 
+
 // ─────────────────────────────────────────────────────
-// DASHBOARD — chargement des labyrinthes
+// DASHBOARD
 // ─────────────────────────────────────────────────────
 async function loadLabyrinthes() {
   if (!currentUser) return
@@ -213,7 +216,9 @@ async function openLabyrinth(id) {
       const titleEl = document.getElementById('lab-page-title')
       if (titleEl) titleEl.textContent = result.lab.name.toUpperCase()
       drawMaze(currentGrid)
-      goToPage('labyrinth') // lance la musique de jeu
+      goToPage('labyrinth')
+      resetTimer()
+      startTimer()
     }
   } catch (err) {
     console.error('[openLabyrinth]', err)
@@ -232,6 +237,7 @@ async function deleteLabyrinth(id, name) {
   }
 }
 
+
 // ─────────────────────────────────────────────────────
 // MODALE
 // ─────────────────────────────────────────────────────
@@ -249,8 +255,9 @@ function closeModalOutside(event, id) {
   if (event.target.id === id) closeModal(id)
 }
 
+
 // ─────────────────────────────────────────────────────
-// CRÉATION D'UN LABYRINTHE
+// CRÉATION LABYRINTHE
 // ─────────────────────────────────────────────────────
 async function handleCreateLabyrinth(event) {
   event.preventDefault()
@@ -288,6 +295,7 @@ async function handleCreateLabyrinth(event) {
   }
 }
 
+
 // ─────────────────────────────────────────────────────
 // PAGE LABYRINTHE
 // ─────────────────────────────────────────────────────
@@ -303,6 +311,7 @@ async function generateMaze() {
   if (overlay) overlay.classList.remove('hidden')
 
   soundGenerate()
+  resetTimer()
 
   try {
     const result = await window.api.invoke('lab:generate', {
@@ -315,6 +324,7 @@ async function generateMaze() {
       currentGrid = result.grid
       drawMaze(result.grid)
       document.getElementById('btn-clear').classList.add('hidden')
+      startTimer() // démarre le chrono après la génération
     }
 
   } catch (err) {
@@ -331,6 +341,8 @@ async function solveMaze() {
     return
   }
 
+  stopTimer() // arrête le chrono quand on résout
+
   try {
     const result = await window.api.invoke('lab:solve', {
       gridJSON: JSON.stringify(currentGrid)
@@ -343,6 +355,7 @@ async function solveMaze() {
     } else {
       showToast('Aucune solution trouvée.')
       soundError()
+      startTimer() // reprend le chrono si pas de solution
     }
 
   } catch (err) {
@@ -354,8 +367,73 @@ function clearSolution() {
   if (currentGrid) {
     drawMaze(currentGrid)
     document.getElementById('btn-clear').classList.add('hidden')
+    resetTimer()
+    startTimer() // reprend le chrono après avoir effacé
   }
 }
+
+
+// ─────────────────────────────────────────────────────
+// TIMER DE RÉSOLUTION
+// ─────────────────────────────────────────────────────
+
+// formate les secondes en MM:SS
+function formatTime(seconds) {
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const s = String(seconds % 60).padStart(2, '0')
+  return `${m}:${s}`
+}
+
+function startTimer() {
+  stopTimer() // stoppe un éventuel timer déjà en cours
+  timerInterval = setInterval(() => {
+    timerSeconds++
+    const el = document.getElementById('timer')
+    if (el) el.textContent = formatTime(timerSeconds)
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+}
+
+function resetTimer() {
+  stopTimer()
+  timerSeconds = 0
+  const el = document.getElementById('timer')
+  if (el) el.textContent = '00:00'
+}
+
+
+// ─────────────────────────────────────────────────────
+// EXPORT PNG
+// ─────────────────────────────────────────────────────
+
+// convertit le canvas en image PNG et la télécharge
+function exportPNG() {
+  const canvas = document.getElementById('maze-canvas')
+
+  if (!currentGrid) {
+    showToast('Génère d\'abord un labyrinthe !')
+    soundError()
+    return
+  }
+
+  // toDataURL() convertit le canvas en base64 PNG
+  const dataURL = canvas.toDataURL('image/png')
+
+  // crée un lien temporaire et clique dessus pour déclencher le téléchargement
+  const link = document.createElement('a')
+  link.href     = dataURL
+  link.download = 'labyrinthe-404escape.png'
+  link.click()
+
+  showToast('Image exportée !')
+}
+
 
 // ─────────────────────────────────────────────────────
 // CANVAS — Rendu pixel art
@@ -403,6 +481,7 @@ function drawSolutionPath(path) {
   }, 15)
 }
 
+
 // ─────────────────────────────────────────────────────
 // TOAST
 // ─────────────────────────────────────────────────────
@@ -414,6 +493,7 @@ function showToast(message) {
   setTimeout(() => toast.classList.add('hidden'), 2500)
 }
 
+
 // ─────────────────────────────────────────────────────
 // UTILITAIRES
 // ─────────────────────────────────────────────────────
@@ -424,39 +504,4 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
-}
-// ─────────────────────────────────────────────────────
-// SAUVEGARDE depuis la page labyrinthe
-// ─────────────────────────────────────────────────────
-async function handleSaveLabyrinth(event) {
-  event.preventDefault()
-
-  if (!currentGrid) {
-    showToast('Génère d\'abord un labyrinthe !')
-    return
-  }
-
-  const name = document.getElementById('save-lab-name').value.trim()
-  if (!name) return
-
-  try {
-    const result = await window.api.invoke('lab:create', {
-      userId:    currentUser.id,
-      name,
-      size:      selectedSize,
-      difficulty: parseInt(document.getElementById('difficulty').value),
-      gridJSON:  JSON.stringify(currentGrid)
-    })
-
-    if (result.success) {
-      closeModal('modal-save')
-      document.getElementById('save-lab-name').value = ''
-      soundLogin()
-      showToast('"' + name + '" sauvegardé !')
-    }
-
-  } catch (err) {
-    console.error('[handleSaveLabyrinth]', err)
-    showToast('Erreur lors de la sauvegarde.')
-  }
 }

@@ -1,22 +1,3 @@
-<!-- ============================================================
-  index.html — Interface graphique principale
-  Responsables : Marly + Sarah
-  ============================================================
-  Ce fichier contient TOUTES les pages de l'application.
-  On ne recharge pas la page : on affiche/cache des sections
-  selon l'état de l'utilisateur (connecté, admin, etc.)
-  
-  SECTIONS :
-    #section-login     → formulaire de connexion
-    #section-register  → formulaire d'inscription
-    #section-dashboard → liste des labyrinthes de l'utilisateur
-    #section-labyrinth → affichage + génération + résolution
-    #section-admin     → interface administrateur
-  
-  Chaque section a la classe CSS "section".
-  La classe "hidden" la cache (display: none dans style.css).
-  C'est app.js qui appelle showSection('nom') pour naviguer.
-  ============================================================ -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -97,9 +78,12 @@
     <button class="btn-back" onclick="goToPage('dashboard')">RETOUR</button>
     <span id="lab-page-title" class="topbar-logo">LABYRINTHE</span>
     <div class="topbar-nav">
+      <!-- timer de résolution -->
+      <span class="timer" id="timer">00:00</span>
       <button class="btn-icon" id="btn-solve" onclick="solveMaze()">RESOUDRE</button>
       <button class="btn-icon danger hidden" id="btn-clear" onclick="clearSolution()">EFFACER</button>
-      <button class="btn-icon" id="btn-save-lab" onclick="openModal('modal-save')">SAUVEGARDER</button>
+      <!-- bouton export PNG -->
+      <button class="btn-icon" id="btn-export" onclick="exportPNG()" title="Exporter en PNG">PNG</button>
     </div>
   </header>
   <div class="controls-bar">
@@ -187,8 +171,7 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<!-- sounds.js est dans assets/sounds/ -->
-<script src="./assets/sounds/sounds.js"></script>
+<script src="./assets/sons/sounds.js"></script>
 <script src="app.js"></script>
 <script src="../admin.js"></script>
 <script>
@@ -237,27 +220,6 @@
     }, 500)
   }
 </script>
- <!-- MODALE SAUVEGARDER depuis la page labyrinthe -->
-<div id="modal-save" class="modal-backdrop hidden" onclick="closeModalOutside(event,'modal-save')">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h2 class="modal-title">SAUVEGARDER</h2>
-      <button class="btn-icon" onclick="closeModal('modal-save')">X</button>
-    </div>
-    <form onsubmit="handleSaveLabyrinth(event)">
-      <div class="modal-body">
-        <div class="field-group">
-          <label>NOM DU LABYRINTHE</label>
-          <input type="text" id="save-lab-name" placeholder="MON_LABYRINTHE" maxlength="30" required />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-ghost" onclick="closeModal('modal-save')">ANNULER</button>
-        <button type="submit" class="btn-primary">SAUVEGARDER</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 </body>
 </html>
