@@ -32,17 +32,6 @@ const labHandlers  = require('./labyrinth')  // génération DFS/Kruskal + réso
 //        Les fonctions admin sont donc gérées ici directement via db.*
 
 // -------------------------------------------------------------
-// Création du compte admin au premier lancement
-// Ignoré si le compte existe déjà en base
-// -------------------------------------------------------------
-db.initDB()
-if (!db.getUserByEmail('admin@404.com')) {
-  const hash = bcrypt.hashSync('admin123', 10)
-  db.createUser({ username: 'admin', email: 'admin@404.com', hashedPassword: hash, role: 'admin' })
-  console.log('✅ Compte admin créé : admin@404.com / admin123')
-}
-
-// -------------------------------------------------------------
 // Création de la fenêtre principale
 // -------------------------------------------------------------
 function createWindow() {
@@ -164,6 +153,19 @@ ipcMain.handle('admin:deleteLabyrinth', (event, labId) => {
 // -------------------------------------------------------------
 
 app.whenReady().then(() => {
+  // ✅ DB initialisée ici — app est prête, userData est accessible
+  // C'est important pour le .exe : le chemin userData n'est disponible
+  // qu'après que Electron soit complètement initialisé
+  db.initDB()
+
+  // Création du compte admin au premier lancement
+  // Ignoré automatiquement si le compte existe déjà en base
+  if (!db.getUserByEmail('admin@404.com')) {
+    const hash = bcrypt.hashSync('admin123', 10)
+    db.createUser({ username: 'admin', email: 'admin@404.com', hashedPassword: hash, role: 'admin' })
+    console.log('✅ Compte admin créé : admin@404.com / admin123')
+  }
+
   createWindow()
 
   // Sur macOS, re-créer la fenêtre si on clique sur l'icône du dock
