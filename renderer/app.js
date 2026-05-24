@@ -12,6 +12,12 @@ let selectedSize = 'small'
 let timerInterval = null
 let timerSeconds  = 0
 
+// ─────────────────────────────────────────────────────
+// ÉTAT DU MODE JEU (joueur controllable)
+// ─────────────────────────────────────────────────────
+let playerMode = false   // true = le joueur est actif sur le canvas
+let playerPos  = null    // { r, c } — position du cube bleu dans la grille
+
 
 // ─────────────────────────────────────────────────────
 // NAVIGATION
@@ -25,6 +31,9 @@ function goToPage(name) {
   if (name === 'dashboard') { stopBgMusic(); loadLabyrinthes() }
   if (name === 'labyrinth') playGameMusic()
   if (name === 'admin')     { stopBgMusic(); initAdminPage() }
+
+  // Désactiver le mode jeu quand on quitte la page labyrinthe
+  if (name !== 'labyrinth') deactivatePlayerMode()
 }
 
 
@@ -158,6 +167,7 @@ function logout() {
   currentToken = null
   currentGrid  = null
   stopTimer()
+  deactivatePlayerMode()
 
   const btnAdmin = document.getElementById('btn-admin')
   if (btnAdmin) btnAdmin.hidden = true
@@ -168,7 +178,7 @@ function logout() {
 
 
 // ─────────────────────────────────────────────────────
-// DASHBOARD
+// DASHBOARD — Chargement des labyrinthes
 // ─────────────────────────────────────────────────────
 async function loadLabyrinthes() {
   if (!currentUser) return
@@ -198,6 +208,7 @@ async function loadLabyrinthes() {
         <div class="lab-card-meta">${sizes[lab.size] || lab.size}</div>
         <div class="lab-card-actions">
           <button class="btn-icon small" onclick="openLabyrinth(${lab.id})">JOUER</button>
+          <button class="btn-icon small" onclick="openRenameModal(${lab.id}, '${escapeHtml(lab.name)}')">RENOMMER</button>
           <button class="btn-icon small danger" onclick="deleteLabyrinth(${lab.id}, '${escapeHtml(lab.name)}')">SUPPR.</button>
         </div>
       </div>
@@ -215,6 +226,7 @@ async function openLabyrinth(id) {
       currentGrid = JSON.parse(result.lab.data)
       const titleEl = document.getElementById('lab-page-title')
       if (titleEl) titleEl.textContent = result.lab.name.toUpperCase()
+      deactivatePlayerMode()
       drawMaze(currentGrid)
       goToPage('labyrinth')
       resetTimer()
@@ -239,7 +251,7 @@ async function deleteLabyrinth(id, name) {
 
 
 // ─────────────────────────────────────────────────────
-// MODALE
+// MODALE — Ouvrir / Fermer
 // ─────────────────────────────────────────────────────
 function openModal(id) {
   const modal = document.getElementById(id)
@@ -297,7 +309,36 @@ async function handleCreateLabyrinth(event) {
 
 
 // ─────────────────────────────────────────────────────
-// PAGE LABYRINTHE
+// RENOMMER UN LABYRINTHE
+// ─────────────────────────────────────────────────────
+function openRenameModal(id, currentName) {
+  document.getElementById('rename-lab-id').value    = id
+  document.getElementById('rename-lab-input').value = currentName
+  openModal('modal-rename')
+}
+
+async function handleRenameLabyrinth(event) {
+  event.preventDefault()
+
+  const id   = parseInt(document.getElementById('rename-lab-id').value)
+  const name = document.getElementById('rename-lab-input').value.trim()
+
+  if (!name) return
+
+  try {
+    await window.api.invoke('lab:update', { id, name })
+    closeModal('modal-rename')
+    showToast('"' + name + '" renommé !')
+    loadLabyrinthes()
+  } catch (err) {
+    console.error('[handleRenameLabyrinth]', err)
+    showToast('Erreur lors du renommage.')
+  }
+}
+
+
+// ─────────────────────────────────────────────────────
+// PAGE LABYRINTHE — Contrôles
 // ─────────────────────────────────────────────────────
 function selectSize(btn) {
   document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'))
@@ -310,6 +351,7 @@ async function generateMaze() {
   const overlay = document.getElementById('canvas-overlay')
   if (overlay) overlay.classList.remove('hidden')
 
+  deactivatePlayerMode()
   soundGenerate()
   resetTimer()
 
@@ -324,7 +366,7 @@ async function generateMaze() {
       currentGrid = result.grid
       drawMaze(result.grid)
       document.getElementById('btn-clear').classList.add('hidden')
-      startTimer() // démarre le chrono après la génération
+      startTimer()
     }
 
   } catch (err) {
@@ -341,7 +383,9 @@ async function solveMaze() {
     return
   }
 
-  stopTimer() // arrête le chrono quand on résout
+  // Désactiver le mode jeu si actif
+  deactivatePlayerMode()
+  stopTimer()
 
   try {
     const result = await window.api.invoke('lab:solve', {
@@ -355,7 +399,7 @@ async function solveMaze() {
     } else {
       showToast('Aucune solution trouvée.')
       soundError()
-      startTimer() // reprend le chrono si pas de solution
+      startTimer()
     }
 
   } catch (err) {
@@ -365,27 +409,167 @@ async function solveMaze() {
 
 function clearSolution() {
   if (currentGrid) {
+    deactivatePlayerMode()
     drawMaze(currentGrid)
     document.getElementById('btn-clear').classList.add('hidden')
     resetTimer()
-    startTimer() // reprend le chrono après avoir effacé
+    startTimer()
   }
 }
 
 
 // ─────────────────────────────────────────────────────
-// TIMER DE RÉSOLUTION
+// MODE JEU — Joueur controllable au clavier
 // ─────────────────────────────────────────────────────
 
-// formate les secondes en MM:SS
+// Active le mode joueur
+function activatePlayerMode() {
+  if (!currentGrid) {
+    showToast('Génère d\'abord un labyrinthe !')
+    soundError()
+    return
+  }
+
+  playerMode = true
+  // Le joueur démarre toujours à l'entrée du labyrinthe (case (1,1))
+  playerPos = { r: 1, c: 1 }
+
+  // Met à jour le bouton
+  const btn = document.getElementById('btn-player-mode')
+  if (btn) {
+    btn.textContent = 'STOP JEU'
+    btn.classList.add('active-mode')
+  }
+
+  // Redessine le labyrinthe propre + le joueur
+  drawMaze(currentGrid)
+  drawPlayer()
+
+  // Réinitialise et démarre le timer
+  resetTimer()
+  startTimer()
+
+  showToast('MODE JEU — ZQSD ou ↑↓←→')
+}
+
+// Désactive le mode joueur
+function deactivatePlayerMode() {
+  playerMode = false
+  playerPos  = null
+
+  const btn = document.getElementById('btn-player-mode')
+  if (btn) {
+    btn.textContent = 'MODE JEU'
+    btn.classList.remove('active-mode')
+  }
+}
+
+// Dessine le cube bleu du joueur sur le canvas
+function drawPlayer() {
+  if (!playerPos || !currentGrid) return
+
+  const canvas   = document.getElementById('maze-canvas')
+  const ctx      = canvas.getContext('2d')
+  const cellSize = Math.floor(canvas.width / currentGrid[0].length)
+  const padding  = Math.max(1, Math.floor(cellSize * 0.15))
+
+  // Couleur bleue néon pour le joueur
+  ctx.fillStyle = '#00BFFF'
+  ctx.shadowColor = '#00BFFF'
+  ctx.shadowBlur  = 6
+  ctx.fillRect(
+    playerPos.c * cellSize + padding,
+    playerPos.r * cellSize + padding,
+    cellSize - padding * 2,
+    cellSize - padding * 2
+  )
+  ctx.shadowBlur = 0
+}
+
+// Déplace le joueur dans la direction (dr, dc) si possible
+function movePlayer(dr, dc) {
+  if (!playerMode || !playerPos || !currentGrid) return
+
+  const newR = playerPos.r + dr
+  const newC = playerPos.c + dc
+
+  const rows = currentGrid.length
+  const cols = currentGrid[0].length
+
+  // Vérifie les limites et la collision avec les murs
+  if (newR < 0 || newR >= rows || newC < 0 || newC >= cols) return
+  if (currentGrid[newR][newC] === 1) return  // mur → mouvement impossible
+
+  // Déplace le joueur
+  playerPos = { r: newR, c: newC }
+
+  // Redessine le labyrinthe + le joueur à la nouvelle position
+  drawMaze(currentGrid)
+  drawPlayer()
+
+  // Vérifie si le joueur a atteint la sortie
+  const exitR = rows - 1
+  const exitC = cols - 2
+  if (playerPos.r === exitR && playerPos.c === exitC) {
+    onPlayerWin()
+  }
+}
+
+// Déclenché quand le joueur atteint la sortie
+function onPlayerWin() {
+  stopTimer()
+  deactivatePlayerMode()
+  soundWin()
+
+  const temps = formatTime(timerSeconds)
+  showToast(`🎉 ÉCHAPPÉ EN ${temps} !`)
+}
+
+// Écouteur clavier — ZQSD et flèches directionnelles
+document.addEventListener('keydown', (e) => {
+  if (!playerMode) return
+
+  // Empêche le scroll de la page quand on utilise les flèches
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+    e.preventDefault()
+  }
+
+  switch (e.key) {
+    case 'ArrowUp':
+    case 'z':
+    case 'Z':
+      movePlayer(-1, 0)  // haut
+      break
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      movePlayer(1, 0)   // bas
+      break
+    case 'ArrowLeft':
+    case 'q':
+    case 'Q':
+      movePlayer(0, -1)  // gauche
+      break
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      movePlayer(0, 1)   // droite
+      break
+  }
+})
+
+
+// ─────────────────────────────────────────────────────
+// TIMER DE RÉSOLUTION
+// ─────────────────────────────────────────────────────
 function formatTime(seconds) {
   const m = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const s = String(seconds % 60).padStart(2, '0')
+  const s = String(seconds % 60).padStart(2, '0'          )
   return `${m}:${s}`
 }
 
 function startTimer() {
-  stopTimer() // stoppe un éventuel timer déjà en cours
+  stopTimer()
   timerInterval = setInterval(() => {
     timerSeconds++
     const el = document.getElementById('timer')
@@ -411,8 +595,6 @@ function resetTimer() {
 // ─────────────────────────────────────────────────────
 // EXPORT PNG
 // ─────────────────────────────────────────────────────
-
-// convertit le canvas en image PNG et la télécharge
 function exportPNG() {
   const canvas = document.getElementById('maze-canvas')
 
@@ -422,11 +604,8 @@ function exportPNG() {
     return
   }
 
-  // toDataURL() convertit le canvas en base64 PNG
   const dataURL = canvas.toDataURL('image/png')
-
-  // crée un lien temporaire et clique dessus pour déclencher le téléchargement
-  const link = document.createElement('a')
+  const link    = document.createElement('a')
   link.href     = dataURL
   link.download = 'labyrinthe-404escape.png'
   link.click()
@@ -455,9 +634,11 @@ function drawMaze(grid) {
     }
   }
 
+  // Entrée — vert néon
   ctx.fillStyle = '#00FF41'
   ctx.fillRect(1 * cellSize, 0, cellSize, cellSize)
 
+  // Sortie — rouge néon
   ctx.fillStyle = '#FF003C'
   ctx.fillRect((cols - 2) * cellSize, (rows - 1) * cellSize, cellSize, cellSize)
 }

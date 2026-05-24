@@ -5,6 +5,18 @@
   <title>404 : ESCAPE</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* Style du bouton MODE JEU quand actif */
+    .btn-icon.active-mode {
+      color: #00BFFF;
+      border-color: #00BFFF;
+      box-shadow: 0 0 8px rgba(0,191,255,0.5);
+    }
+    .btn-icon.active-mode:hover {
+      background: #00BFFF;
+      color: #000;
+    }
+  </style>
 </head>
 <body>
 
@@ -78,11 +90,12 @@
     <button class="btn-back" onclick="goToPage('dashboard')">RETOUR</button>
     <span id="lab-page-title" class="topbar-logo">LABYRINTHE</span>
     <div class="topbar-nav">
-      <!-- timer de résolution -->
+      <!-- Timer de résolution -->
       <span class="timer" id="timer">00:00</span>
+      <!-- Bouton MODE JEU — active le cube bleu controllable -->
+      <button class="btn-icon" id="btn-player-mode" onclick="activatePlayerMode()">MODE JEU</button>
       <button class="btn-icon" id="btn-solve" onclick="solveMaze()">RESOUDRE</button>
       <button class="btn-icon danger hidden" id="btn-clear" onclick="clearSolution()">EFFACER</button>
-      <!-- bouton export PNG -->
       <button class="btn-icon" id="btn-export" onclick="exportPNG()" title="Exporter en PNG">PNG</button>
     </div>
   </header>
@@ -110,6 +123,8 @@
       <span class="legend-entry">ENTREE</span>
       <span class="legend-exit">SORTIE</span>
       <span class="legend-path">CHEMIN A*</span>
+      <!-- Légende du joueur -->
+      <span style="color:#00BFFF;">■ JOUEUR</span>
     </div>
   </div>
 </div>
@@ -138,7 +153,7 @@
   </main>
 </div>
 
-<!-- MODALE -->
+<!-- MODALE CRÉER -->
 <div id="modal-create" class="modal-backdrop hidden" onclick="closeModalOutside(event,'modal-create')">
   <div class="modal-box">
     <div class="modal-header">
@@ -164,6 +179,29 @@
       <div class="modal-footer">
         <button type="button" class="btn-ghost" onclick="closeModal('modal-create')">ANNULER</button>
         <button type="submit" class="btn-primary">CREER</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODALE RENOMMER -->
+<div id="modal-rename" class="modal-backdrop hidden" onclick="closeModalOutside(event,'modal-rename')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">RENOMMER</h2>
+      <button class="btn-icon" onclick="closeModal('modal-rename')">X</button>
+    </div>
+    <form onsubmit="handleRenameLabyrinth(event)">
+      <div class="modal-body">
+        <div class="field-group">
+          <label>NOUVEAU NOM</label>
+          <input type="text" id="rename-lab-input" placeholder="MON_LABYRINTHE" maxlength="30" required />
+          <input type="hidden" id="rename-lab-id" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('modal-rename')">ANNULER</button>
+        <button type="submit" class="btn-primary">RENOMMER</button>
       </div>
     </form>
   </div>
