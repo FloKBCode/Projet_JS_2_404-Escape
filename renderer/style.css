@@ -65,6 +65,7 @@ body { min-height: 100vh; background: var(--bg); color: var(--white); font-famil
 .btn-icon:hover { color: var(--white); border-color: var(--grey); }
 .btn-icon.danger { color: var(--red); border-color: var(--red-dim); }
 .btn-icon.danger:hover { background: var(--red); color: var(--white); box-shadow: var(--glow-r); }
+.btn-icon.small { font-size: .52rem; padding: .4rem .55rem; }
 
 .btn-ghost { font-family: var(--font); font-size: .7rem; padding: .7rem 1.2rem; background: transparent; color: var(--grey); border: 1px solid var(--grey-2); cursor: none; transition: .15s ease; }
 .btn-ghost:hover { color: var(--white); border-color: var(--grey); }
@@ -114,7 +115,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance
 .section-title { font-size: .7rem; color: var(--white); letter-spacing: 2px; padding-left: .8rem; border-left: 3px solid var(--red); }
 .section-title.mt { margin-top: 1.5rem; }
 
-.lab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.lab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
 .empty-state { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; gap: .8rem; padding: 3rem; border: 1px dashed var(--grey-2); color: var(--grey); font-size: .6rem; text-align: center; }
 .empty-sub { font-size: .5rem; }
 
