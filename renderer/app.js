@@ -423,6 +423,16 @@ function clearSolution() {
 // ─────────────────────────────────────────────────────
 
 // Active le mode joueur
+function togglePlayerMode() {
+  if (playerMode) {
+    deactivatePlayerMode()
+    if (currentGrid) drawMaze(currentGrid)
+    resetTimer()
+  } else {
+    activatePlayerMode()
+  }
+}
+
 function activatePlayerMode() {
   if (!currentGrid) {
     showToast('Génère d\'abord un labyrinthe !')
@@ -431,8 +441,8 @@ function activatePlayerMode() {
   }
 
   playerMode = true
-  // Le joueur démarre toujours à l'entrée du labyrinthe (case (1,1))
-  playerPos = { r: 1, c: 1 }
+  // Le joueur démarre sur la case d'entrée verte (r=0, c=1)
+  playerPos = { r: 0, c: 1 }
 
   // Met à jour le bouton
   const btn = document.getElementById('btn-player-mode')
