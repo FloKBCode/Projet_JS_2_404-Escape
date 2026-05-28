@@ -124,7 +124,7 @@ Un compte administrateur est créé automatiquement au premier lancement :
 
 ### Installer via l'exécutable Windows
 
-Télécharge directement `404 Escape Setup 1.0.0.exe` dans les [releases](https://github.com/FloKBCode/Projet_JS_2_404-Escape.git/releases) et lance l'installeur.
+Télécharge directement `404 Escape Setup 1.0.0.exe` dans les [releases](https://github.com/FloKBCode/Projet_JS_2_404-Escape/releases) et lance l'installeur.
 
 ---
 
